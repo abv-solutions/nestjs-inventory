@@ -1,0 +1,37 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+input CreateInvoiceInput {
+  amount: Float!
+  currency: String!
+  customer_id: Int!
+  description: String
+  invoice_number: Int!
+  is_paid: Boolean!
+  is_storno: Boolean!
+  payment_term: String!
+  project_id: Int!
+}
+
+type Invoice {
+  amount: Float!
+  currency: String!
+  customer_id: Int!
+  description: String
+  invoice_number: Int!
+  is_paid: Boolean!
+  is_storno: Boolean!
+  payment_term: String!
+  project_id: Int!
+}
+
+type Mutation {
+  createInvoice(createInvoiceInput: CreateInvoiceInput!): Invoice!
+  markInvoiceAsPaid(invoice_number: Float!, is_paid: Boolean!): Invoice!
+}
+
+type Query {
+  invoice(invoice_number: Float!): Invoice!
+  invoices: [Invoice!]!
+}
