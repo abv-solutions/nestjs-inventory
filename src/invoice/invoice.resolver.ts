@@ -6,6 +6,7 @@ import { Logger } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { MarkInvoiceAsPaidCommand } from './commands/mark-invoice-as-paid.command';
 import { GetInvoiceQuery } from './queries/get-invoice.query';
+import { UpdateInvoiceInput } from './dto/update-invoice.input';
 
 @Resolver(() => Invoice)
 export class InvoiceResolver {
@@ -52,12 +53,50 @@ export class InvoiceResolver {
   }
 
   @Mutation(() => Invoice)
+  async updateInvoice(
+    @Args('invoice_number') invoice_number: number,
+    @Args('updates') updates: UpdateInvoiceInput,
+  ): Promise<Invoice> {
+    this.logger.log(
+      `GraphQL mutation received: Update invoice #${invoice_number} with new details.`,
+    );
+    const updatedInvoice = await this.invoiceService.updateInvoice(
+      invoice_number,
+      updates,
+    );
+
+    this.logger.log(
+      `GraphQL mutation completed: Invoice #${invoice_number} updated with new details.`,
+    );
+
+    return updatedInvoice;
+  }
+
+  @Mutation(() => Invoice)
+  async generateStornoInvoice(
+    @Args('invoice_number') invoice_number: number,
+  ): Promise<Invoice> {
+    this.logger.log(
+      `GraphQL mutation received: Generate storno for invoice #${invoice_number}.`,
+    );
+
+    const updatedInvoice =
+      await this.invoiceService.generateStornoInvoice(invoice_number);
+
+    this.logger.log(
+      `GraphQL mutation completed: Generated storno for invoice #${invoice_number}.`,
+    );
+
+    return updatedInvoice;
+  }
+
+  @Mutation(() => Invoice)
   async markInvoiceAsPaid(
     @Args('invoice_number') invoice_number: number,
     @Args('is_paid') is_paid: boolean,
   ): Promise<Invoice> {
     this.logger.log(
-      `GraphQL mutation received: Mark invoice #${invoice_number} as paid (is_paid: ${is_paid}).`,
+      `GraphQL mutation received: Mark invoice #${invoice_number} as paid or unpaid (is_paid: ${is_paid}).`,
     );
 
     const updatedInvoice = await this.commandBus.execute(
@@ -65,7 +104,7 @@ export class InvoiceResolver {
     );
 
     this.logger.log(
-      `GraphQL mutation completed: Invoice #${invoice_number} marked as paid (is_paid: ${is_paid}) and updated invoice details returned.`,
+      `GraphQL mutation completed: Invoice #${invoice_number} marked as paid or unpaid (is_paid: ${is_paid}) and updated invoice details returned.`,
     );
 
     return updatedInvoice;

@@ -18,8 +18,8 @@ export class InvoiceService {
 
   async createInvoice(invoiceData: Partial<Invoice>): Promise<Invoice> {
     const result = await this.databaseService.query(
-      `INSERT INTO invoices (invoice_number, amount, currency, description, payment_term, is_storno, customer_id, project_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO invoices (invoice_number, amount, currency, description, payment_term, is_storno, is_paid, customer_id, project_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *;`,
       [
         invoiceData.invoice_number,
@@ -28,6 +28,7 @@ export class InvoiceService {
         invoiceData.description,
         invoiceData.payment_term,
         invoiceData.is_storno,
+        invoiceData.is_paid,
         invoiceData.customer_id,
         invoiceData.project_id,
       ],
@@ -35,36 +36,110 @@ export class InvoiceService {
     return new Invoice(result[0]);
   }
 
-  async markAsPaid(invoice_number: number, is_paid: boolean): Promise<Invoice> {
-    this.logger.log(
-      `Database update initiated: Marking invoice #${invoice_number} as paid (is_paid: ${is_paid}).`,
-    );
+  async updateInvoice(
+    invoice_number: number,
+    updateData: Partial<Invoice>,
+  ): Promise<Invoice> {
+    const columns = Object.keys(updateData)
+      .map((key, index) => `${key} = $${index + 1}`)
+      .join(', ');
 
-    await this.databaseService.query(
-      `UPDATE invoices 
-       SET is_paid = $1 
-       WHERE invoice_number = $2;`,
-      [is_paid, invoice_number],
-    );
-
-    this.logger.log(
-      `Database update successful: Invoice #${invoice_number} marked as paid.`,
-    );
+    const values = Object.values(updateData);
+    values.push(invoice_number);
 
     this.logger.log(
-      `Database query initiated: Fetching invoice #${invoice_number}.`,
+      `Database update initiated: Updating invoice #${invoice_number} with data ${JSON.stringify(updateData)}.`,
     );
 
     const result = await this.databaseService.query(
-      `SELECT * FROM invoices WHERE invoice_number = $1;`,
-      [invoice_number],
+      `UPDATE invoices
+       SET ${columns}
+       WHERE invoice_number = $${values.length}
+       RETURNING *;`,
+      values,
     );
 
     if (result.length > 0) {
       const updatedInvoice = new Invoice(result[0]);
 
       this.logger.log(
-        `Database query successful: Fetched updated details for invoice #${invoice_number}.`,
+        `Database update successful: Invoice #${invoice_number} updated.`,
+      );
+
+      // Invalidate cache for the updated invoice
+      this.cacheService.invalidate(`invoice_${invoice_number}`);
+
+      return updatedInvoice;
+    } else {
+      this.logger.error(
+        `Database update failed: Invoice with number ${invoice_number} not found.`,
+      );
+    }
+  }
+
+  async generateStornoInvoice(invoice_number: number): Promise<Invoice> {
+    this.logger.log(
+      `Database query initiated: Generating storno for invoice #${invoice_number}.`,
+    );
+
+    const result = await this.databaseService.query(
+      `WITH original_invoice AS (
+         SELECT * FROM invoices WHERE invoice_number = $1
+       )
+       INSERT INTO invoices 
+         (invoice_number, amount, currency, description, payment_term, is_storno, customer_id, project_id, is_paid)
+       SELECT
+         invoice_number + 100000000 AS invoice_number,
+         -amount,
+         currency,
+         CONCAT('Storno for invoice #', invoice_number, ': ', description) AS description,
+         payment_term,
+         TRUE AS is_storno,
+         customer_id,
+         project_id,
+         is_paid
+       FROM original_invoice
+       RETURNING *;`,
+      [invoice_number],
+    );
+
+    if (result.length > 0) {
+      const stornoInvoice = new Invoice(result[0]);
+
+      this.logger.log(
+        `Database update successful: Generated storno invoice #${stornoInvoice.invoice_number} for invoice #${invoice_number}.`,
+      );
+
+      // Invalidate cache for the original invoice and the new storno invoice
+      this.cacheService.invalidate(`invoice_${invoice_number}`);
+      this.cacheService.invalidate(`invoice_${stornoInvoice.invoice_number}`);
+
+      return stornoInvoice;
+    } else {
+      this.logger.error(
+        `Database query failed: Invoice with number ${invoice_number} not found.`,
+      );
+    }
+  }
+
+  async markAsPaid(invoice_number: number, is_paid: boolean): Promise<Invoice> {
+    this.logger.log(
+      `Database update initiated: Marking invoice #${invoice_number} as paid or unpaid.`,
+    );
+
+    const result = await this.databaseService.query(
+      `UPDATE invoices
+       SET is_paid = $1
+       WHERE invoice_number = $2
+       RETURNING *;`,
+      [is_paid, invoice_number],
+    );
+
+    if (result.length > 0) {
+      const updatedInvoice = new Invoice(result[0]);
+
+      this.logger.log(
+        `Database update successful: Invoice #${invoice_number} marked as paid or unpaid.`,
       );
 
       this.eventBus.publish(new InvoicePaidEvent(invoice_number, new Date()));
@@ -75,14 +150,18 @@ export class InvoiceService {
       return updatedInvoice;
     } else {
       this.logger.error(
-        `Database query failed: Invoice with number ${invoice_number} not found.`,
+        `Database update failed: Invoice with number ${invoice_number} not found.`,
       );
     }
   }
 
   async findAll(): Promise<Invoice[]> {
-    this.logger.log('Fetching all invoices from database.');
+    this.logger.log('Database query initiated: Fetching all invoices.');
+
     const result = await this.databaseService.query(`SELECT * FROM invoices;`);
+
+    this.logger.log('Database query successful: Fetched all invoices.');
+
     return result.map((record) => new Invoice(record));
   }
 

@@ -19,7 +19,7 @@ export class MarkInvoiceAsPaidHandler
 
   async execute(command: MarkInvoiceAsPaidCommand): Promise<Invoice> {
     this.logger.log(
-      `Executing command: Mark invoice #${command.invoice_number} as paid (is_paid: ${command.is_paid}).`,
+      `Executing command: Mark invoice #${command.invoice_number} as paid or unpaid (is_paid: ${command.is_paid}).`,
     );
 
     const updatedInvoice = await this.invoiceService.markAsPaid(
@@ -34,7 +34,7 @@ export class MarkInvoiceAsPaidHandler
     );
 
     this.logger.log(
-      `Command execution completed: Invoice #${command.invoice_number} marked as paid (is_paid: ${command.is_paid}) and message published.`,
+      `Command execution completed: Invoice #${command.invoice_number} marked as paid or unpaid (is_paid: ${command.is_paid}) and message published.`,
     );
     return updatedInvoice;
   }

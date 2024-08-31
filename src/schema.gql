@@ -28,10 +28,18 @@ type Invoice {
 
 type Mutation {
   createInvoice(createInvoiceInput: CreateInvoiceInput!): Invoice!
+  generateStornoInvoice(invoice_number: Float!): Invoice!
   markInvoiceAsPaid(invoice_number: Float!, is_paid: Boolean!): Invoice!
+  updateInvoice(invoice_number: Float!, updates: UpdateInvoiceInput!): Invoice!
 }
 
 type Query {
   invoice(invoice_number: Float!): Invoice!
   invoices: [Invoice!]!
+}
+
+input UpdateInvoiceInput {
+  amount: Float
+  currency: String
+  description: String
 }
