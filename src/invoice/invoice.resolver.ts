@@ -3,8 +3,9 @@ import { InvoiceService } from './invoice.service';
 import { Invoice } from './invoice.entity';
 import { CreateInvoiceInput } from './dto/create-invoice.input';
 import { Logger } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { MarkInvoiceAsPaidCommand } from './commands/mark-invoice-as-paid.command';
+import { GetInvoiceQuery } from './queries/get-invoice.query';
 
 @Resolver(() => Invoice)
 export class InvoiceResolver {
@@ -13,22 +14,40 @@ export class InvoiceResolver {
   constructor(
     private readonly invoiceService: InvoiceService,
     private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
   ) {}
 
   @Query(() => [Invoice], { name: 'invoices' })
   async findAll() {
+    this.logger.log('GraphQL query received: Retrieve all invoices.');
     return this.invoiceService.findAll();
   }
 
   @Query(() => Invoice, { name: 'invoice' })
   async findOne(@Args('invoice_number') invoice_number: number) {
-    return this.invoiceService.findOne(invoice_number);
+    this.logger.log(`GraphQL query received: Get invoice #${invoice_number}.`);
+    const invoice = await this.queryBus.execute(
+      new GetInvoiceQuery(invoice_number),
+    );
+    if (!invoice) {
+      this.logger.warn(
+        `GraphQL query result: Invoice #${invoice_number} not found.`,
+      );
+    } else {
+      this.logger.log(
+        `GraphQL query completed: Invoice #${invoice_number} fetched and returned`,
+      );
+    }
+    return invoice;
   }
 
   @Mutation(() => Invoice)
   async createInvoice(
     @Args('createInvoiceInput') createInvoiceInput: CreateInvoiceInput,
   ) {
+    this.logger.log(
+      `GraphQL mutation received: Create invoice with input ${JSON.stringify(createInvoiceInput)}.`,
+    );
     return this.invoiceService.createInvoice(createInvoiceInput);
   }
 
@@ -38,7 +57,7 @@ export class InvoiceResolver {
     @Args('is_paid') is_paid: boolean,
   ): Promise<Invoice> {
     this.logger.log(
-      `GraphQL request received: Mark invoice #${invoice_number} as paid (is_paid: ${is_paid}).`,
+      `GraphQL mutation received: Mark invoice #${invoice_number} as paid (is_paid: ${is_paid}).`,
     );
 
     const updatedInvoice = await this.commandBus.execute(

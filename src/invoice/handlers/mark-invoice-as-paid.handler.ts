@@ -33,9 +33,8 @@ export class MarkInvoiceAsPaidHandler
       new InvoicePaidEvent(command.invoice_number, new Date()),
     );
 
-    // Log the result and return it
     this.logger.log(
-      `Command execution completed: Invoice #${command.invoice_number} marked as paid (is_paid: ${command.is_paid}) and event published.`,
+      `Command execution completed: Invoice #${command.invoice_number} marked as paid (is_paid: ${command.is_paid}) and message published.`,
     );
     return updatedInvoice;
   }

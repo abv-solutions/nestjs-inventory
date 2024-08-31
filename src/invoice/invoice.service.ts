@@ -4,6 +4,7 @@ import { Invoice } from './invoice.entity';
 import { EventBus } from '@nestjs/cqrs';
 import { InvoicePaidEvent } from './events/invoice-paid.event';
 import { CacheService } from 'src/core/cache.service';
+import { InvoiceFetchedEvent } from './events/invoice-fetched.event';
 
 @Injectable()
 export class InvoiceService {
@@ -34,10 +35,9 @@ export class InvoiceService {
     return new Invoice(result[0]);
   }
 
-  // Mark an invoice as paid or unpaid
   async markAsPaid(invoice_number: number, is_paid: boolean): Promise<Invoice> {
     this.logger.log(
-      `Updating database: Marking invoice #${invoice_number} as paid (is_paid: ${is_paid}).`,
+      `Database update initiated: Marking invoice #${invoice_number} as paid (is_paid: ${is_paid}).`,
     );
 
     await this.databaseService.query(
@@ -51,13 +51,15 @@ export class InvoiceService {
       `Database update successful: Invoice #${invoice_number} marked as paid.`,
     );
 
-    // Retrieve and return the updated invoice
+    this.logger.log(
+      `Database query initiated: Fetching invoice #${invoice_number}.`,
+    );
+
     const result = await this.databaseService.query(
       `SELECT * FROM invoices WHERE invoice_number = $1;`,
       [invoice_number],
     );
 
-    // Check if invoice exists and return it
     if (result.length > 0) {
       const updatedInvoice = new Invoice(result[0]);
 
@@ -72,13 +74,14 @@ export class InvoiceService {
 
       return updatedInvoice;
     } else {
-      // Handle the case where the invoice was not found
-      this.logger.error(`Invoice with number ${invoice_number} not found`);
-      throw new Error(`Invoice with number ${invoice_number} not found`);
+      this.logger.error(
+        `Database query failed: Invoice with number ${invoice_number} not found.`,
+      );
     }
   }
 
   async findAll(): Promise<Invoice[]> {
+    this.logger.log('Fetching all invoices from database.');
     const result = await this.databaseService.query(`SELECT * FROM invoices;`);
     return result.map((record) => new Invoice(record));
   }
@@ -92,7 +95,9 @@ export class InvoiceService {
       return cachedInvoice;
     }
 
-    this.logger.log(`Fetching invoice ${invoice_number} from database.`);
+    this.logger.log(
+      `Database query initiated: Fetching invoice #${invoice_number}.`,
+    );
 
     const result = await this.databaseService.query(
       `SELECT * FROM invoices WHERE invoice_number = $1;`,
@@ -105,9 +110,21 @@ export class InvoiceService {
       // Cache the result
       this.cacheService.set(cacheKey, invoice, 60);
 
+      this.logger.log(
+        `Database query successful: Retrieved invoice #${invoice_number}.`,
+      );
+
+      // Emit the event
+      this.eventBus.publish(
+        new InvoiceFetchedEvent(invoice_number, new Date()),
+      );
+
       return invoice;
     }
 
+    this.logger.error(
+      `Database query failed: Invoice with number #${invoice_number} not found.`,
+    );
     return null;
   }
 }

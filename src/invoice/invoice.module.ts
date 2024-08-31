@@ -6,6 +6,7 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { GetInvoiceHandler } from './handlers/get-invoice.handler';
 import { InvoicePaidEventHandler } from './handlers/invoice-paid.handler';
 import { MarkInvoiceAsPaidHandler } from './handlers/mark-invoice-as-paid.handler';
+import { InvoiceFetchedEventHandler } from './handlers/invoice-fetched.handler';
 import { InvoiceEventsListener } from './events/invoice-events.listener';
 
 @Module({
@@ -14,6 +15,7 @@ import { InvoiceEventsListener } from './events/invoice-events.listener';
     InvoiceService,
     InvoiceResolver,
     InvoicePaidEventHandler,
+    InvoiceFetchedEventHandler,
     MarkInvoiceAsPaidHandler,
     InvoiceEventsListener,
     GetInvoiceHandler,
