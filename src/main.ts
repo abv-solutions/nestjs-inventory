@@ -5,7 +5,6 @@ import { Logger } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable logging
   app.useLogger(new Logger());
 
   await app.listen(5000);

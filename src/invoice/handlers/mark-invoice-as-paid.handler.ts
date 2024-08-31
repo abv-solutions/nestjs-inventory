@@ -1,8 +1,10 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { InvoiceService } from '../invoice.service'; // Adjust import path
-import { MarkInvoiceAsPaidCommand } from '../commands/mark-invoice-as-paid.command'; // Adjust import path
+import { InvoiceService } from '../invoice.service';
+import { MarkInvoiceAsPaidCommand } from '../commands/mark-invoice-as-paid.command';
 import { Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Invoice } from '../invoice.entity';
+import { InvoicePaidEvent } from '../events/invoice-paid.event';
 
 @CommandHandler(MarkInvoiceAsPaidCommand)
 export class MarkInvoiceAsPaidHandler
@@ -10,21 +12,31 @@ export class MarkInvoiceAsPaidHandler
 {
   private readonly logger = new Logger(MarkInvoiceAsPaidHandler.name);
 
-  constructor(private readonly invoiceService: InvoiceService) {}
+  constructor(
+    private readonly invoiceService: InvoiceService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
 
   async execute(command: MarkInvoiceAsPaidCommand): Promise<Invoice> {
     this.logger.log(
-      `Handling MarkInvoiceAsPaidCommand for invoice number: ${command.invoice_number}`,
+      `Executing command: Mark invoice #${command.invoice_number} as paid (is_paid: ${command.is_paid}).`,
     );
-    this.logger.log(`Mark as paid: ${command.is_paid}`);
 
     const updatedInvoice = await this.invoiceService.markAsPaid(
       command.invoice_number,
       command.is_paid,
     );
 
+    // Emit an event after marking as paid
+    this.eventEmitter.emit(
+      'invoice.paid',
+      new InvoicePaidEvent(command.invoice_number, new Date()),
+    );
+
     // Log the result and return it
-    this.logger.log(`Invoice ${command.invoice_number} updated successfully.`);
+    this.logger.log(
+      `Command execution completed: Invoice #${command.invoice_number} marked as paid (is_paid: ${command.is_paid}) and event published.`,
+    );
     return updatedInvoice;
   }
 }

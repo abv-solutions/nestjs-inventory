@@ -38,14 +38,16 @@ export class InvoiceResolver {
     @Args('is_paid') is_paid: boolean,
   ): Promise<Invoice> {
     this.logger.log(
-      `Received request to mark invoice ${invoice_number} as paid: ${is_paid}`,
+      `GraphQL request received: Mark invoice #${invoice_number} as paid (is_paid: ${is_paid}).`,
     );
 
     const updatedInvoice = await this.commandBus.execute(
       new MarkInvoiceAsPaidCommand(invoice_number, is_paid),
     );
 
-    this.logger.log(`Invoice ${invoice_number} updated and returned.`);
+    this.logger.log(
+      `GraphQL mutation completed: Invoice #${invoice_number} marked as paid (is_paid: ${is_paid}) and updated invoice details returned.`,
+    );
 
     return updatedInvoice;
   }

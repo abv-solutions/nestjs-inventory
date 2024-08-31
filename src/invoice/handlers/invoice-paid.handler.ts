@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventsHandler, IEventHandler } from '@nestjs/cqrs';
-import { InvoicePaidEvent } from '../events/invoice-paid.event'; // Update import path as needed
+import { InvoicePaidEvent } from '../events/invoice-paid.event';
 
 @Injectable()
 @EventsHandler(InvoicePaidEvent)
@@ -11,10 +11,13 @@ export class InvoicePaidEventHandler
 
   async handle(event: InvoicePaidEvent): Promise<void> {
     this.logger.log(
-      `Handling InvoicePaidEvent for invoice number: ${event.invoiceNumber}`,
+      `Event handling started: Processing InvoicePaidEvent for invoice #${event.invoice_number}.`,
     );
-    this.logger.log(`Event timestamp: ${event.timestamp}`);
 
-    // Add your handling logic here
+    this.logger.log(
+      `Event details: Invoice #${event.invoice_number} marked as paid at ${event.timestamp}.`,
+    );
+
+    // Logic for event sourcing
   }
 }
