@@ -135,5 +135,11 @@ describe('InvoiceService and Command Handler Integration Test', () => {
       'invoice.paid',
       new InvoicePaidEvent(invoice_number, expect.any(Date)),
     );
+
+    // Verify EventBus.publish is called with the correct event
+    expect(eventBus.publish).toHaveBeenCalledWith({
+      invoice_number,
+      timestamp: expect.any(Date),
+    });
   });
 });
