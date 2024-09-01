@@ -44,13 +44,15 @@ The system is designed with the following components:
 
 By addressing these next steps, the application will be more robust, scalable, and maintainable, with a well-defined architecture and comprehensive test coverage.
 
-The database connection string is shared separately as the .env root project file.
-
 ## Project setup
 
 ```bash
 $ npm install
 ```
+
+The database connection string is shared separately as the .env root project file.
+
+Access http://localhost:5000/graphql for the GraphQL API and http://localhost:5000/ for the REST API.
 
 ## Compile and run the project
 
