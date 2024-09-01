@@ -44,6 +44,8 @@ The system is designed with the following components:
 
 By addressing these next steps, the application will be more robust, scalable, and maintainable, with a well-defined architecture and comprehensive test coverage.
 
+The database connection string is shared separately as the .env root project file.
+
 ## Project setup
 
 ```bash
