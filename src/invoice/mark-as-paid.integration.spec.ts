@@ -10,7 +10,7 @@ import { MarkInvoiceAsPaidCommand } from './commands/mark-invoice-as-paid.comman
 import { MarkInvoiceAsPaidHandler } from './handlers/mark-invoice-as-paid.handler';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
-describe('InvoiceService and Command Handler Integration Test', () => {
+describe('Mark as paid integration test', () => {
   let invoiceService: InvoiceService;
   let databaseService: DatabaseService;
   let cacheService: CacheService;
@@ -91,7 +91,7 @@ describe('InvoiceService and Command Handler Integration Test', () => {
       });
   });
 
-  it('should execute MarkInvoiceAsPaidCommand and handle invoice update and event emission', async () => {
+  it('should execute MarkInvoiceAsPaidCommand, handle invoice update, event emission and message publish', async () => {
     const invoice_number = 1357;
     const is_paid = true;
 
