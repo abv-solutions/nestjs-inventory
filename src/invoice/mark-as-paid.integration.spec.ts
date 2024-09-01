@@ -73,24 +73,6 @@ describe('InvoiceService Integration Test', () => {
 
     const result = await invoiceService.markAsPaid(invoice_number, is_paid);
 
-    console.log('Result from markAsPaid:', result);
-    console.log(
-      'cacheService.get calls:',
-      (cacheService.get as jest.Mock).mock.calls,
-    );
-    console.log(
-      'cacheService.set calls:',
-      (cacheService.set as jest.Mock).mock.calls,
-    );
-    console.log(
-      'databaseService.query calls:',
-      (databaseService.query as jest.Mock).mock.calls,
-    );
-    console.log(
-      'eventBus.publish calls:',
-      (eventBus.publish as jest.Mock).mock.calls,
-    );
-
     expect(result).toEqual(updatedInvoice);
 
     // Verify databaseService.query is called only if cache miss occurs
