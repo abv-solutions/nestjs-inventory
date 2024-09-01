@@ -4,7 +4,6 @@ import { DatabaseService } from '../core/database.service';
 import { CacheService } from 'src/core/cache.service';
 import { EventBus } from '@nestjs/cqrs';
 import { ErrorHandlingService } from 'src/core/error-handling.service';
-import { InvoicePaidEvent } from './events/invoice-paid.event';
 import { Invoice } from './invoice.entity';
 
 describe('InvoiceService Integration Test', () => {
@@ -56,22 +55,37 @@ describe('InvoiceService Integration Test', () => {
   });
 
   it('should mark invoice as paid and return updated invoice', async () => {
-    const invoiceNumber = 123;
-    const isPaid = true;
+    const invoice_number = 1355;
+    const is_paid = true;
 
     const updatedInvoice = new Invoice({
-      invoice_number: invoiceNumber,
-      is_paid: isPaid,
+      invoice_number: invoice_number,
+      is_paid: is_paid,
       // Add other required properties here
     });
 
     // Mock the database service query method to return the updated invoice
     (databaseService.query as jest.Mock).mockResolvedValue([updatedInvoice]);
 
-    const result = await invoiceService.markAsPaid(invoiceNumber, isPaid);
+    const result = await invoiceService.markAsPaid(invoice_number, is_paid);
 
     console.log('Result from markAsPaid:', result);
+    console.log(
+      'databaseService.query calls:',
+      (databaseService.query as jest.Mock).mock.calls,
+    );
 
     expect(result).toEqual(updatedInvoice);
+
+    // Verify that databaseService.query is called with the correct SQL query and parameters
+    expect(databaseService.query).toHaveBeenCalledWith(
+      expect.stringContaining(
+        `UPDATE invoices
+         SET is_paid = $1
+         WHERE invoice_number = $2
+         RETURNING *;`,
+      ),
+      [is_paid, invoice_number],
+    );
   });
 });
