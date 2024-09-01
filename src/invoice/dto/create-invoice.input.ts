@@ -1,8 +1,10 @@
 import { InputType, Field, Int, Float } from '@nestjs/graphql';
+import { Min } from 'class-validator';
 
 @InputType()
 export class CreateInvoiceInput {
   @Field(() => Int)
+  @Min(1337, { message: 'Invoice number must be at least 1337' })
   invoice_number: number;
 
   @Field(() => Float)

@@ -10,7 +10,7 @@ export class ErrorHandlingService {
       error.stack,
     );
     throw new Error(
-      `Database operation failed: ${context}. Please try again later.`,
+      `Database operation failed in ${context}: ${error.message}`,
     );
   }
 
@@ -25,7 +25,7 @@ export class ErrorHandlingService {
       error.stack,
     );
     throw new Error(
-      `Unexpected error occurred: ${context}. Please try again later.`,
+      `Unexpected error occurred in ${context}: ${error.message}`,
     );
   }
 }

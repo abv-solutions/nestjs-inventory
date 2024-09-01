@@ -10,6 +10,7 @@ import { ErrorHandlingService } from 'src/core/error-handling.service';
 @Injectable()
 export class InvoiceService {
   private readonly logger = new Logger(InvoiceService.name);
+  private readonly cacheKey = 'all_invoices';
 
   constructor(
     private readonly databaseService: DatabaseService,
@@ -22,31 +23,51 @@ export class InvoiceService {
     try {
       this.logger.log('Database query initiated: Fetching all invoices.');
 
+      // Check the cache first
+      const cachedInvoices = this.cacheService.get(this.cacheKey);
+      if (cachedInvoices) {
+        return cachedInvoices;
+      }
+
+      // If not cached, fetch from database
       const result = await this.databaseService.query(
         `SELECT * FROM invoices;`,
       );
 
       this.logger.log('Database query successful: Fetched all invoices.');
 
-      return result.map((record) => new Invoice(record));
+      // Map results to Invoice instances
+      const invoices = result.map((record) => new Invoice(record));
+
+      // Cache the result
+      this.cacheService.set(this.cacheKey, invoices, 300); // Cache for 5 minutes
+
+      return invoices;
     } catch (error) {
       this.errorHandlingService.handleDatabaseError(error, 'findAll');
     }
   }
 
   async findOne(invoice_number: number): Promise<Invoice> {
-    const cacheKey = `invoice_${invoice_number}`;
-
     try {
-      const cachedInvoice = this.cacheService.get(cacheKey);
-      if (cachedInvoice) {
-        return cachedInvoice;
-      }
-
       this.logger.log(
         `Database query initiated: Fetching invoice #${invoice_number}.`,
       );
 
+      // Check the cache for the entire list
+      const cachedInvoices = this.cacheService.get(this.cacheKey);
+
+      if (cachedInvoices) {
+        // Find the invoice in the cached list
+        const invoice = cachedInvoices.find(
+          (inv: Invoice) => inv.invoice_number === invoice_number,
+        );
+        if (invoice) {
+          return invoice;
+        }
+      }
+
+      // If not cached or not found, fetch from the database
       const result = await this.databaseService.query(
         `SELECT * FROM invoices WHERE invoice_number = $1;`,
         [invoice_number],
@@ -55,7 +76,11 @@ export class InvoiceService {
       if (result.length > 0) {
         const invoice = new Invoice(result[0]);
 
-        this.cacheService.set(cacheKey, invoice, 60);
+        // Update the cache with the new invoice list
+        const updatedInvoices = cachedInvoices
+          ? [...cachedInvoices, invoice]
+          : [invoice];
+        this.cacheService.set(this.cacheKey, updatedInvoices, 300); // Cache for 5 minutes
 
         this.logger.log(
           `Database query successful: Retrieved invoice #${invoice_number}.`,
@@ -76,6 +101,7 @@ export class InvoiceService {
 
   async createInvoice(invoiceData: Partial<Invoice>): Promise<Invoice> {
     try {
+      // Create a new invoice in the database
       const result = await this.databaseService.query(
         `INSERT INTO invoices (invoice_number, amount, currency, description, payment_term, is_storno, is_paid, customer_id, project_id)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -92,7 +118,19 @@ export class InvoiceService {
           invoiceData.project_id,
         ],
       );
-      return new Invoice(result[0]);
+
+      const newInvoice = new Invoice(result[0]);
+
+      // Retrieve the cached list of invoices
+      const cachedInvoices = this.cacheService.get(this.cacheKey);
+
+      // Update the cache with the new invoice list
+      const updatedInvoices = cachedInvoices
+        ? [...cachedInvoices, newInvoice]
+        : [newInvoice];
+      this.cacheService.set(this.cacheKey, updatedInvoices, 60); // Cache for 1 minute
+
+      return newInvoice;
     } catch (error) {
       this.errorHandlingService.handleDatabaseError(error, 'createInvoice');
     }
@@ -129,7 +167,17 @@ export class InvoiceService {
           `Database update successful: Invoice #${invoice_number} updated.`,
         );
 
-        this.cacheService.invalidate(`invoice_${invoice_number}`);
+        // Retrieve and update the cached list
+        const cachedInvoices = this.cacheService.get(this.cacheKey);
+
+        if (cachedInvoices) {
+          const updatedInvoices = cachedInvoices.map((invoice) =>
+            invoice.invoice_number === updatedInvoice.invoice_number
+              ? updatedInvoice
+              : invoice,
+          );
+          this.cacheService.set(this.cacheKey, updatedInvoices, 60); // Cache for 1 minute
+        }
 
         return updatedInvoice;
       } else {
@@ -177,8 +225,13 @@ export class InvoiceService {
           `Database update successful: Generated storno invoice #${stornoInvoice.invoice_number} for invoice #${invoice_number}.`,
         );
 
-        this.cacheService.invalidate(`invoice_${invoice_number}`);
-        this.cacheService.invalidate(`invoice_${stornoInvoice.invoice_number}`);
+        // Retrieve and update the cached list if it exists
+        const cachedInvoices = this.cacheService.get(this.cacheKey);
+
+        if (cachedInvoices) {
+          const updatedInvoices = [...cachedInvoices, stornoInvoice];
+          this.cacheService.set(this.cacheKey, updatedInvoices, 60); // Cache for 1 minute
+        }
 
         return stornoInvoice;
       } else {
@@ -218,7 +271,17 @@ export class InvoiceService {
 
         this.eventBus.publish(new InvoicePaidEvent(invoice_number, new Date()));
 
-        this.cacheService.invalidate(`invoice_${invoice_number}`);
+        // Retrieve and update the cached list if it exists
+        const cachedInvoices = this.cacheService.get(this.cacheKey);
+
+        if (cachedInvoices) {
+          const updatedInvoices = cachedInvoices.map((invoice) =>
+            invoice.invoice_number === invoice_number
+              ? updatedInvoice
+              : invoice,
+          );
+          this.cacheService.set(this.cacheKey, updatedInvoices, 60); // Cache for 1 minute
+        }
 
         return updatedInvoice;
       } else {
