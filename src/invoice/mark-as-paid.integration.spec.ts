@@ -4,6 +4,7 @@ import { DatabaseService } from '../core/database.service';
 import { CacheService } from 'src/core/cache.service';
 import { EventBus } from '@nestjs/cqrs';
 import { ErrorHandlingService } from 'src/core/error-handling.service';
+import { InvoicePaidEvent } from './events/invoice-paid.event';
 import { Invoice } from './invoice.entity';
 
 describe('InvoiceService Integration Test', () => {
@@ -64,20 +65,35 @@ describe('InvoiceService Integration Test', () => {
       // Add other required properties here
     });
 
-    // Mock the database service query method to return the updated invoice
+    // Mock databaseService query method
     (databaseService.query as jest.Mock).mockResolvedValue([updatedInvoice]);
+
+    // Mock eventBus.publish method
+    (eventBus.publish as jest.Mock).mockImplementation(() => {});
 
     const result = await invoiceService.markAsPaid(invoice_number, is_paid);
 
     console.log('Result from markAsPaid:', result);
     console.log(
+      'cacheService.get calls:',
+      (cacheService.get as jest.Mock).mock.calls,
+    );
+    console.log(
+      'cacheService.set calls:',
+      (cacheService.set as jest.Mock).mock.calls,
+    );
+    console.log(
       'databaseService.query calls:',
       (databaseService.query as jest.Mock).mock.calls,
+    );
+    console.log(
+      'eventBus.publish calls:',
+      (eventBus.publish as jest.Mock).mock.calls,
     );
 
     expect(result).toEqual(updatedInvoice);
 
-    // Verify that databaseService.query is called with the correct SQL query and parameters
+    // Verify databaseService.query is called only if cache miss occurs
     expect(databaseService.query).toHaveBeenCalledWith(
       expect.stringContaining(
         `UPDATE invoices
@@ -87,5 +103,8 @@ describe('InvoiceService Integration Test', () => {
       ),
       [is_paid, invoice_number],
     );
+
+    // Verify eventBus.publish was called with the expected event
+    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(InvoicePaidEvent));
   });
 });
