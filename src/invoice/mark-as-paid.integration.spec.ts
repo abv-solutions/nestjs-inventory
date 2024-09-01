@@ -8,7 +8,6 @@ import { InvoicePaidEvent } from './events/invoice-paid.event';
 import { Invoice } from './invoice.entity';
 import { MarkInvoiceAsPaidCommand } from './commands/mark-invoice-as-paid.command';
 import { MarkInvoiceAsPaidHandler } from './handlers/mark-invoice-as-paid.handler';
-import { CommandBus } from '@nestjs/cqrs';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 describe('InvoiceService and Command Handler Integration Test', () => {
@@ -17,7 +16,6 @@ describe('InvoiceService and Command Handler Integration Test', () => {
   let cacheService: CacheService;
   let eventBus: EventBus;
   let errorHandlingService: ErrorHandlingService;
-  let commandBus: CommandBus;
   let eventEmitter: EventEmitter2;
   let markInvoiceAsPaidHandler: MarkInvoiceAsPaidHandler;
 
@@ -53,12 +51,6 @@ describe('InvoiceService and Command Handler Integration Test', () => {
           },
         },
         {
-          provide: CommandBus,
-          useValue: {
-            execute: jest.fn(),
-          },
-        },
-        {
           provide: EventEmitter2,
           useValue: {
             emit: jest.fn(),
@@ -73,7 +65,6 @@ describe('InvoiceService and Command Handler Integration Test', () => {
     eventBus = module.get<EventBus>(EventBus);
     errorHandlingService =
       module.get<ErrorHandlingService>(ErrorHandlingService);
-    commandBus = module.get<CommandBus>(CommandBus);
     eventEmitter = module.get<EventEmitter2>(EventEmitter2);
     markInvoiceAsPaidHandler = module.get<MarkInvoiceAsPaidHandler>(
       MarkInvoiceAsPaidHandler,
