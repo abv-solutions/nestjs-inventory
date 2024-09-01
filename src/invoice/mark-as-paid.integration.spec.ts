@@ -6,18 +6,26 @@ import { EventBus } from '@nestjs/cqrs';
 import { ErrorHandlingService } from 'src/core/error-handling.service';
 import { InvoicePaidEvent } from './events/invoice-paid.event';
 import { Invoice } from './invoice.entity';
+import { MarkInvoiceAsPaidCommand } from './commands/mark-invoice-as-paid.command';
+import { MarkInvoiceAsPaidHandler } from './handlers/mark-invoice-as-paid.handler';
+import { CommandBus } from '@nestjs/cqrs';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
-describe('InvoiceService Integration Test', () => {
+describe('InvoiceService and Command Handler Integration Test', () => {
   let invoiceService: InvoiceService;
   let databaseService: DatabaseService;
   let cacheService: CacheService;
   let eventBus: EventBus;
   let errorHandlingService: ErrorHandlingService;
+  let commandBus: CommandBus;
+  let eventEmitter: EventEmitter2;
+  let markInvoiceAsPaidHandler: MarkInvoiceAsPaidHandler;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InvoiceService,
+        MarkInvoiceAsPaidHandler,
         {
           provide: DatabaseService,
           useValue: {
@@ -44,6 +52,18 @@ describe('InvoiceService Integration Test', () => {
             publish: jest.fn(),
           },
         },
+        {
+          provide: CommandBus,
+          useValue: {
+            execute: jest.fn(),
+          },
+        },
+        {
+          provide: EventEmitter2,
+          useValue: {
+            emit: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
@@ -53,10 +73,35 @@ describe('InvoiceService Integration Test', () => {
     eventBus = module.get<EventBus>(EventBus);
     errorHandlingService =
       module.get<ErrorHandlingService>(ErrorHandlingService);
+    commandBus = module.get<CommandBus>(CommandBus);
+    eventEmitter = module.get<EventEmitter2>(EventEmitter2);
+    markInvoiceAsPaidHandler = module.get<MarkInvoiceAsPaidHandler>(
+      MarkInvoiceAsPaidHandler,
+    );
+
+    // Mock databaseService.query
+    jest
+      .spyOn(databaseService, 'query')
+      .mockImplementation(async (query: string, params: any[]) => {
+        if (
+          query.includes('UPDATE invoices') &&
+          params[0] !== undefined &&
+          params[1] !== undefined
+        ) {
+          return [
+            new Invoice({
+              invoice_number: params[1],
+              is_paid: params[0],
+              // Add other required properties here
+            }),
+          ];
+        }
+        return [];
+      });
   });
 
-  it('should mark invoice as paid and return updated invoice', async () => {
-    const invoice_number = 1355;
+  it('should execute MarkInvoiceAsPaidCommand and handle invoice update and event emission', async () => {
+    const invoice_number = 1357;
     const is_paid = true;
 
     const updatedInvoice = new Invoice({
@@ -65,17 +110,16 @@ describe('InvoiceService Integration Test', () => {
       // Add other required properties here
     });
 
-    // Mock databaseService query method
-    (databaseService.query as jest.Mock).mockResolvedValue([updatedInvoice]);
+    // Create the command
+    const command = new MarkInvoiceAsPaidCommand(invoice_number, is_paid);
 
-    // Mock eventBus.publish method
-    (eventBus.publish as jest.Mock).mockImplementation(() => {});
+    // Execute the command using the handler
+    const result = await markInvoiceAsPaidHandler.execute(command);
 
-    const result = await invoiceService.markAsPaid(invoice_number, is_paid);
-
+    // Assertions
     expect(result).toEqual(updatedInvoice);
 
-    // Verify databaseService.query is called only if cache miss occurs
+    // Ensure the database query method was called with the expected query and parameters
     expect(databaseService.query).toHaveBeenCalledWith(
       expect.stringContaining(
         `UPDATE invoices
@@ -86,7 +130,10 @@ describe('InvoiceService Integration Test', () => {
       [is_paid, invoice_number],
     );
 
-    // Verify eventBus.publish was called with the expected event
-    expect(eventBus.publish).toHaveBeenCalledWith(expect.any(InvoicePaidEvent));
+    // Verify eventEmitter.emit is called with the correct event
+    expect(eventEmitter.emit).toHaveBeenCalledWith(
+      'invoice.paid',
+      new InvoicePaidEvent(invoice_number, expect.any(Date)),
+    );
   });
 });
