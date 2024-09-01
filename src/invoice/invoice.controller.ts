@@ -13,7 +13,7 @@ export class InvoiceController {
 
   @Get()
   async findAll(): Promise<Invoice[]> {
-    return this.invoiceService.findAll();
+    return this.invoiceService.findAll(50);
   }
 
   @Get(':invoice_number')

@@ -20,8 +20,8 @@ export class InvoiceResolver {
 
   @Query(() => [Invoice], { name: 'invoices' })
   async findAll() {
-    this.logger.log('GraphQL query received: Retrieve all invoices.');
-    return this.invoiceService.findAll();
+    this.logger.log('GraphQL query received: Retrieve 50 invoices.');
+    return this.invoiceService.findAll(50);
   }
 
   @Query(() => Invoice, { name: 'invoice' })
